@@ -1,13 +1,15 @@
 import pygame
 from pygame import Vector2 as Vector2
 
-from math import copysign as copysign
+import csv
 
-screenSize = Vector2(400, 400)
+screenSize = Vector2(800, 800)
 
 pygame.init()
 
 screen = pygame.display.set_mode(screenSize)
+
+pygame.display.set_caption("A Maze Game")
 clock = pygame.time.Clock()
 
 running = True
@@ -35,17 +37,16 @@ class Camera:
 
 class Geometry:
     def __init__(self):
-        self.geometry = [
-            [1, 1, 1, 1, 1],
-            [1, 0, 0, 0, 1],
-            [1, 0, 1, 0, 1],
-            [1, 0, 1, 0, 1],
-            [1, 1, 1, 1, 1],
-        ]
-
+        self.geometry = []
         self.cellSize = 50
-        self.onColor = (255, 255, 255)
-        self.offColor = (0, 0, 0)
+        self.onColor = (55, 55, 55)
+        self.offColor = (10, 10, 10)
+
+    def loadGeometryFile(self, filePath):
+        with open(filePath) as file:
+            fileData = csv.reader(file, delimiter=",")
+            for row in fileData:
+                self.geometry.append([int(cell) for cell in row])
 
     def render(self, camera, screen):
         position = Vector2(0, 0)
@@ -73,24 +74,25 @@ class Geometry:
 class Player:
     def __init__(self):
         self.position: Vector2 = Vector2(100, 100)
-        self.speed = 300
+        self.speed = 450
         self.size = 20
+        self.color = (240, 24, 24)
+
+    def isPlayerColliding(self, world):
+        collidingPoints = [world.isColliding(point) for point in self.getPlayerWorldBB()]
+        return any(collidingPoints)
 
     def movePlayerDirection(self, direction: Vector2, camera: Camera, world: Geometry):
         change = direction * self.speed * dt
-        offset = Vector2(copysign(self.size, change.x), copysign(self.size, change.y))
 
-        self.position.x += change.x + offset.x
-        if world.isColliding(self.position):
-            self.position.x -= change.x + offset.x
-        else:
-            self.position.x -= offset.x
-        self.position.y += change.y + offset.y
+        self.position.x += change.x
+        if self.isPlayerColliding(world):
+            self.position.x -= change.x
+        
+        self.position.y += change.y
 
-        if world.isColliding(self.position):
-            self.position.y -= change.y + offset.y
-        else:
-            self.position.y -= offset.y
+        if self.isPlayerColliding(world):
+            self.position.y -= change.y
 
         camera.position += (self.position - camera.position) * 0.2
         
@@ -104,13 +106,15 @@ class Player:
         ]
 
     def renderPlayer(self, screen, camera):
-        pygame.draw.polygon(screen, (255, 0, 0), [camera.transformPoint(point) for point in self.getPlayerWorldBB()])
+        pygame.draw.polygon(screen, self.color, [camera.transformPoint(point) for point in self.getPlayerWorldBB()])
 
 camera = Camera()
 
 player = Player()
 
 world = Geometry()
+
+world.loadGeometryFile("./maze-data.csv")
 
 dt = 1
 
